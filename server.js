@@ -62,7 +62,7 @@ app.post('/convert', upload.single('epsFile'), (req, res) => {
 
 // Route to serve index.html (for the upload form)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname,'public', 'index.html'));
 });
 
 // Start the server
