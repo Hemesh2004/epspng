@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPS to PNG Converter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    form {
+      max-width: 400px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .message {
+      margin-top: 20px;
+      text-align: center;
+      padding: 15px;
+      background-color: #e7f7e7;
+      border: 1px solid #4CAF50;
+      color: #4CAF50;
+      border-radius: 4px;
+      display: none;
+    }
+    .error {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    .success {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+  </style>
+</head>
+<body>
+  <h1>EPS to PNG Converter</h1>
+  
+  <!-- File upload form -->
+  <form id="uploadForm">
+    <input type="file" name="epsFile" id="epsFile" accept=".eps" required />
+    <button type="submit">Upload and Convert</button>
+  </form>
+
+  <!-- Message area -->
+  <div id="message" class="message"></div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      // Clear any previous messages
+      const messageBox = document.getElementById('message');
+      messageBox.style.display = 'none';
+
+      const formData = new FormData();
+      const fileInput = document.getElementById('epsFile');
+      formData.append('epsFile', fileInput.files[0]);
+
+      // Send the file to the server using Fetch API
+      fetch('/convert', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Check if the conversion was successful
+        if (data.message === 'File converted successfully!') {
+          messageBox.className = 'message success';
+          messageBox.innerHTML = `Conversion successful! The file has been saved to your Downloads folder as <strong>${data.filePath}</strong>. <a href="${data.downloadLink}" target="_blank">Click here to download</a>.`;
+        } else {
+          messageBox.className = 'message error';
+          messageBox.innerHTML = 'An error occurred during the conversion.';
+        }
+
+        messageBox.style.display = 'block';
+      })
+      .catch(err => {
+        console.error('Error:', err);
+        messageBox.className = 'message error';
+        messageBox.innerHTML = 'There was an issue uploading the file. Please try again.';
+        messageBox.style.display = 'block';
+      });
+    });
+  </script>
+</body>
+</html>

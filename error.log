@@ -1,0 +1,12 @@
+[2025-01-09T11:44:42.106Z] Error converting file: shutt.eps 
+stderr: C:/Users/HEMESH/AppData/Local/Temp/magick-CBYGoODn0GRy7c9fje2a47a5Az161NHh1 PAM 2688x1520 2688x1520+0+0 8-bit ColorSeparation CMYK 15.586MiB 0.033u 0:00.033
+C:\Users\HEMESH\Desktop\Pro\uploads\1736423080939.eps EPS 2688x1520 2688x1520+0+0 16-bit ColorSeparation CMYK 15.586MiB 0.003u 0:00.002
+magick: unable to open image 'C:\Users\HEMESH\Desktop\Pro\converted\1736423080953.png': No such file or directory @ error/blob.c/OpenBlob/3596.
+magick: WriteBlob Failed `C:\Users\HEMESH\Desktop\Pro\converted\1736423080953.png' @ error/png.c/MagickPNGErrorHandler/1491.
+ 
+err: Error: Command failed: magick -verbose "C:\Users\HEMESH\Desktop\Pro\uploads\1736423080939.eps" "C:\Users\HEMESH\Desktop\Pro\converted\1736423080953.png"
+C:/Users/HEMESH/AppData/Local/Temp/magick-CBYGoODn0GRy7c9fje2a47a5Az161NHh1 PAM 2688x1520 2688x1520+0+0 8-bit ColorSeparation CMYK 15.586MiB 0.033u 0:00.033
+C:\Users\HEMESH\Desktop\Pro\uploads\1736423080939.eps EPS 2688x1520 2688x1520+0+0 16-bit ColorSeparation CMYK 15.586MiB 0.003u 0:00.002
+magick: unable to open image 'C:\Users\HEMESH\Desktop\Pro\converted\1736423080953.png': No such file or directory @ error/blob.c/OpenBlob/3596.
+magick: WriteBlob Failed `C:\Users\HEMESH\Desktop\Pro\converted\1736423080953.png' @ error/png.c/MagickPNGErrorHandler/1491.
+
