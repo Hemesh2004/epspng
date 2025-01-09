@@ -6,23 +6,26 @@ const fs = require('fs');
 const { exec } = require('child_process');
 
 const app = express();
-const port = 3000;
+
+// Use the environment variable $PORT provided by Heroku or default to 3000
+const port = process.env.PORT || 3000;
 
 // Set up Multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Set uploads folder for temporary file storage
     const uploadDir = path.join(__dirname, 'uploads');
-    // Make sure the uploads folder exists
     fs.existsSync(uploadDir) || fs.mkdirSync(uploadDir);
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Use a timestamp to avoid name collisions
+    cb(null, file.originalname);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }  // 10MB max file size
+});
 
 // Serve static files from 'uploads' and 'downloads' directories
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -34,18 +37,11 @@ app.post('/convert', upload.single('epsFile'), (req, res) => {
     return res.status(400).send('No file uploaded.');
   }
 
-  // Input file path
   const inputFile = path.join(__dirname, 'uploads', req.file.filename);
-
-  // Extract the original file name (without the .eps extension)
-  const outputFileName = path.basename(req.file.originalname, '.eps');
-
-  // Define the output file path in Downloads folder with the same name, but with .png extension
-  const outputFile = path.join(os.homedir(), 'Downloads', `${outputFileName}.png`);
+  const outputFile = path.join(os.homedir(), 'Downloads', req.file.originalname.replace('.eps', '.png'));
 
   console.log(`Converting: ${inputFile} to ${outputFile}`);
 
-  // Use ImageMagick to convert EPS to PNG
   const command = `magick -verbose "${inputFile}" "${outputFile}"`;
 
   exec(command, (err, stdout, stderr) => {
@@ -57,23 +53,19 @@ app.post('/convert', upload.single('epsFile'), (req, res) => {
     }
 
     console.log(`Converted: ${req.file.originalname} to ${outputFile}`);
-
-    // Send the path to the converted file (or a download link)
     res.json({
       message: 'File converted successfully!',
-      downloadLink: `/downloads/${path.basename(outputFile)}`,
-      filePath: outputFile // Send the full file path for UI updates
+      downloadLink: `/downloads/${path.basename(outputFile)}`
     });
   });
 });
 
 // Route to serve index.html (for the upload form)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname,'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Start the server
-app.listen(port, '0.0.0.0', () => {
+app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
-
