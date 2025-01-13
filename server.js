@@ -6,8 +6,6 @@ const fs = require('fs');
 const { exec } = require('child_process');
 
 const app = express();
-
-// Use the environment variable $PORT provided by Heroku or default to 3000
 const port = process.env.PORT || 3000;
 
 // Set up Multer for file uploads
@@ -24,48 +22,68 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }  // 10MB max file size
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
 });
-
-// Serve static files from 'uploads' and 'downloads' directories
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/downloads', express.static(path.join(os.homedir(), 'Downloads')));
 
 // Route to handle file upload and conversion
-app.post('/convert', upload.single('epsFile'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).send('No file uploaded.');
+app.post('/convert', upload.array('epsFiles'), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).send('No files uploaded.');
   }
 
-  const inputFile = path.join(__dirname, 'uploads', req.file.filename);
-  const outputFile = path.join(os.homedir(), 'Downloads', req.file.originalname.replace('.eps', '.png'));
+  const resolution = req.body.resolution || 'normal';
+  const savePath = path.resolve(req.body.savePath);
 
-  console.log(`Converting: ${inputFile} to ${outputFile}`);
+  if (!fs.existsSync(savePath)) {
+    return res.status(400).send('The specified save location does not exist.');
+  }
 
-  const command = `magick -verbose "${inputFile}" "${outputFile}"`;
+  // Set DPI values based on resolution selection
+  const dpiMap = {
+    '0.5': '150',
+    'normal': '300',
+    '2': '600',
+  };
+  const dpi = dpiMap[resolution] || '300';
 
-  exec(command, (err, stdout, stderr) => {
-    if (err) {
-      console.error('Error converting file:', req.file.originalname);
-      console.error('stderr:', stderr);
-      console.error('stdout:', stdout);
-      return res.status(500).send('Error converting file.');
-    }
+  try {
+    const conversionPromises = req.files.map(file => {
+      const inputFile = path.join(__dirname, 'uploads', file.filename);
+      const outputFile = path.join(savePath, file.originalname.replace('.eps', `.png`));
 
-    console.log(`Converted: ${req.file.originalname} to ${outputFile}`);
-    res.json({
-      message: 'File converted successfully!',
-      downloadLink: `/downloads/${path.basename(outputFile)}`
+      // Use ImageMagick's 'magick convert' to apply DPI settings
+      const command = `magick convert -density ${dpi} "${inputFile}" "${outputFile}"`;
+
+      return new Promise((resolve, reject) => {
+        exec(command, (err, stdout, stderr) => {
+          if (err) {
+            console.error(`Error converting file: ${file.originalname}`);
+            console.error(stderr);
+            reject(err);
+          } else {
+            resolve({
+              filename: file.originalname.replace('.eps', '.png'),
+              path: outputFile,
+            });
+          }
+        });
+      });
     });
-  });
+
+    // Execute all conversions in parallel
+    const convertedFiles = await Promise.all(conversionPromises);
+
+    // Send response with saved file paths
+    res.json({ files: convertedFiles });
+  } catch (error) {
+    console.error('Error during file conversion:', error);
+    res.status(500).send('An error occurred during the conversion process.');
+  }
 });
 
-// Route to serve index.html (for the uploaded form)
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname,'public', 'index.html'));
-});
+// Serve the HTML form
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Start the server
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
