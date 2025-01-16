@@ -1,89 +1,82 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
-const { exec } = require('child_process');
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const { exec } = require("child_process");
+const fs = require("fs");
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = 3000;
 
-// Set up Multer for file uploads
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure Multer for file uploads
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadDir = path.join(__dirname, 'uploads');
-    fs.existsSync(uploadDir) || fs.mkdirSync(uploadDir);
+  destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     cb(null, file.originalname);
+  },
+});
+const upload = multer({ storage , limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// Static folder for serving HTML files
+app.use(express.static("public"));
+
+// Route for the root path
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Route to handle file uploads and conversion
+app.post("/convert", upload.array("epsFiles"), async (req, res) => {
+  const savePath = req.body.savePath; // User-specified save directory
+
+  if (!savePath || !fs.existsSync(savePath)) {
+    return res.status(400).send("Invalid or missing save path.");
   }
-});
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
-});
-
-// Route to handle file upload and conversion
-app.post('/convert', upload.array('epsFiles'), async (req, res) => {
   if (!req.files || req.files.length === 0) {
-    return res.status(400).send('No files uploaded.');
+    return res.status(400).send("No files uploaded.");
   }
 
-  const resolution = req.body.resolution || 'normal';
-  const savePath = path.resolve(req.body.savePath);
+  const convertedFiles = [];
 
-  if (!fs.existsSync(savePath)) {
-    return res.status(400).send('The specified save location does not exist.');
-  }
+  // Process each uploaded file
+  for (const file of req.files) {
+    const inputFile = path.join(uploadDir, file.filename);
+    const outputFile = path.join(savePath, `${path.parse(file.originalname).name}.png`);
 
-  // Set DPI values based on resolution selection
-  const dpiMap = {
-    '0.5': '150',
-    'normal': '300',
-    '2': '600',
-  };
-  const dpi = dpiMap[resolution] || '300';
+    try {
+      // Use ImageMagick command to convert EPS to PNG
+      await new Promise((resolve, reject) => {
+        const command = `magick convert -density 300 -quality 100 -colorspace sRGB -depth 8 -flatten "${inputFile}" "${outputFile}"`;
 
-  try {
-    const conversionPromises = req.files.map(file => {
-      const inputFile = path.join(__dirname, 'uploads', file.filename);
-      const outputFile = path.join(savePath, file.originalname.replace('.eps', `.png`));
-
-      // Use ImageMagick's 'magick convert' to apply DPI settings
-      const command = `magick convert -density ${dpi} "${inputFile}" "${outputFile}"`;
-
-      return new Promise((resolve, reject) => {
-        exec(command, (err, stdout, stderr) => {
+        exec(command, (err) => {
           if (err) {
-            console.error(`Error converting file: ${file.originalname}`);
-            console.error(stderr);
-            reject(err);
-          } else {
-            resolve({
-              filename: file.originalname.replace('.eps', '.png'),
-              path: outputFile,
-            });
+            console.error("Error during file conversion:", err);
+            return reject(err);
           }
+          resolve();
         });
       });
-    });
 
-    // Execute all conversions in parallel
-    const convertedFiles = await Promise.all(conversionPromises);
-
-    // Send response with saved file paths
-    res.json({ files: convertedFiles });
-  } catch (error) {
-    console.error('Error during file conversion:', error);
-    res.status(500).send('An error occurred during the conversion process.');
+      convertedFiles.push(outputFile);
+    } catch (error) {
+      console.error("Conversion failed for file:", file.originalname, error);
+      return res.status(500).send("Error converting file(s).");
+    }
   }
+
+  res.json({ message: "Files converted successfully!", files: convertedFiles });
 });
 
-// Serve the HTML form
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running at http://localhost:${PORT}`);
 });
